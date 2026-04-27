@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>stuDYING - pls work</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --phi: 1.618; 
+            --bg-color: #e8ecd7;
+            --text-color: #2c4c3b;
+            --window-bg: rgba(244, 246, 236, 0.85);
+            --border-color: #a3b16d;
+            --accent-color: #8b9a46;
+            --error-color: #d9534f;
+            --success-color: #5cb85c;
+            --warning-color: #f0ad4e;
+            
+            --font-mono: 'Courier New', ui-monospace, SFMono-Regular, monospace;
+            --font-main: system-ui, -apple-system, sans-serif;
+            
+            --transition-spring: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --transition-smooth: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        body.dark-mode {
+            --bg-color: #121815;
+            --text-color: #dbe2c6;
+            --window-bg: rgba(26, 36, 33, 0.85);
+            --border-color: #8b9a46;
+            --accent-color: #e8ecd7;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-main);
+            font-weight: 500;
+            user-select: none;
+            outline: none;
+        }
+
+        body {
+            background: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            transition: background var(--transition-smooth), color var(--transition-smooth);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #mycelium-canvas {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 1; opacity: 0.6; pointer-events: none;
+        }
+
+        #sys-xp-bar { position: absolute; top: 0; left: 0; width: 100%; height: 4px; z-index: 9000; }
+        #sys-xp-fill { height: 100%; background: var(--accent-color); width: 0%; transition: width 0.5s ease; }
+
+        #boot-screen {
+            position: fixed; inset: 0; background: var(--bg-color); color: var(--text-color);
+            z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.8s ease, visibility 0.8s ease;
+        }
+        .boot-title { font-size: 4rem; font-family: var(--font-mono); letter-spacing: 2px; }
+
+        #desktop-environment {
+            position: absolute; top: 0; left: 0; width: 100%; height: calc(100vh - 50px);
+            z-index: 5; display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start;
+            padding: 30px; gap: 15px;
+        }
+
+        .desktop-icon {
+            width: 110px; height: 100px; background: var(--window-bg); backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+            border-radius: 12px; transition: all var(--transition-spring);
+            box-shadow: 4px 4px 0px var(--border-color); cursor: pointer;
+        }
+        .desktop-icon span { font-size: 0.9rem; font-family: var(--font-mono); text-transform: lowercase; }
+        .desktop-icon:hover { transform: translateY(-4px) scale(1.02); box-shadow: 8px 8px 0px var(--border-color); background: var(--text-color); color: var(--bg-color); }
+        .desktop-icon.locked { opacity: 0.5; pointer-events: none; box-shadow: none; border-style: dashed; }
+
+        .os-window {
+            position: absolute; top: 0; left: 0; background: var(--window-bg); backdrop-filter: blur(25px);
+            border: 1px solid var(--border-color); box-shadow: 10px 10px 0 rgba(0,0,0,0.1); z-index: 100; display: none; flex-direction: column;
+            border-radius: 14px; overflow: hidden; min-width: 320px; max-width: 95vw; max-height: 85vh; will-change: transform;
+        }
+        
+        .os-window.open { display: flex; animation: windowSpawn var(--transition-spring) forwards; }
+        
+        @keyframes windowSpawn { 
+            from { opacity: 0; transform: scale(0.95) translateY(10px); } 
+            to { opacity: 1; transform: scale(1) translateY(0); } 
+        }
+
+        .window-titlebar { 
+            background: var(--text-color); color: var(--bg-color); padding: 12px 20px; 
+            display: flex; justify-content: space-between; align-items: center; 
+            font-size: 0.85rem; letter-spacing: 0.5px; cursor: move; text-transform: lowercase; 
+        }
+        
+        .window-controls { display: flex; gap: 8px; }
+        .window-btn { background: transparent; color: var(--bg-color); border: 1px solid var(--bg-color); border-radius: 50%; width: 20px; height: 20px; cursor: pointer; transition: 0.2s; }
+        .window-btn:hover { transform: scale(1.1); }
+        .window-content { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 15px; }
+
+        .os-btn { 
+            background: var(--window-bg); color: var(--text-color); border: 1px solid var(--border-color); 
+            padding: 10px 20px; border-radius: 8px; cursor: pointer; 
+            box-shadow: 3px 3px 0 var(--border-color); font-family: var(--font-mono); transition: 0.2s; 
+            text-transform: lowercase;
+        }
+        .os-btn:hover:not(:disabled) { background: var(--text-color); color: var(--bg-color); transform: translateY(-2px); box-shadow: 5px 5px 0 var(--border-color); }
+        .os-btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; }
+        
+        .os-input { width: 100%; background: rgba(0,0,0,0.05); border: 1px solid var(--border-color); color: var(--text-color); padding: 10px; border-radius: 8px; font-family: var(--font-main); }
+        
+        #taskbar { position: absolute; bottom: 0; left: 0; width: 100%; height: 50px; background: var(--window-bg); backdrop-filter: blur(20px); border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; z-index: 9000; }
+        
+        .status-box { border: 1px solid var(--border-color); padding: 15px; text-align: center; border-radius: 10px; font-size: 0.85rem; }
+        
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9500; display: flex; flex-direction: column; gap: 10px; }
+        .os-toast { background: var(--text-color); color: var(--bg-color); padding: 12px 20px; border-radius: 8px; font-family: var(--font-mono); font-size: 0.75rem; transform: translateX(120%); transition: 0.4s; text-transform: lowercase; }
+        .os-toast.show { transform: translateX(0); }
+    </style>
+</head>
+<body>
+
+    <canvas id="mycelium-canvas"></canvas>
+
+    <div id="sys-xp-bar"><div id="sys-xp-fill"></div></div>
+    <div class="toast-container" id="sys-notifications"></div>
+
+    <div id="boot-screen">
+        <div class="boot-header">
+            <div class="boot-title">stuDYING</div>
+            <div class="boot-subtitle" style="margin-bottom: 20px;">a peaceful space to focus and learn.</div>
+        </div>
+        <button class="os-btn" id="btn-init-kernel">enter workspace</button>
+    </div>
+
+    <div id="desktop-environment">
+        <div id="widget-clock" style="position: absolute; top: 40px; right: 50px; font-size: 3.5rem; font-family: var(--font-mono); opacity: 0.15; pointer-events: none;">00:00:00</div>
+        
+        <div class="desktop-icon" data-launch="app-terminal">
+            <i data-lucide="terminal"></i><span>terminal</span>
+        </div>
+        <div class="desktop-icon" data-launch="app-quests">
+            <i data-lucide="check-square"></i><span>tasks</span>
+        </div>
+        <div class="desktop-icon" data-launch="app-heist">
+            <i data-lucide="timer"></i><span>focus</span>
+        </div>
+        <div class="desktop-icon" data-launch="app-market">
+            <i data-lucide="shopping-bag"></i><span>market</span>
+        </div>
+        <div class="desktop-icon" data-launch="app-prana">
+            <i data-lucide="activity"></i><span>breathe</span>
+        </div>
+        <div class="desktop-icon locked" id="icon-notes" data-launch="app-notes">
+            <i data-lucide="edit-3"></i><span>notes</span>
+        </div>
+        <div class="desktop-icon locked" id="icon-calc" data-launch="app-calc">
+            <i data-lucide="calculator"></i><span>calc</span>
+        </div>
+    </div>
+
+    <div id="os-window-layer">
+        
+        <div class="os-window" id="app-terminal" style="width: 500px; height: 350px;">
+            <div class="window-titlebar window-drag-handle">
+                <span>command terminal</span>
+                <div class="window-controls">
+                    <button class="window-btn min" data-action="min-window">-</button>
+                    <button class="window-btn close" data-action="close-window" data-target="app-terminal">x</button>
+                </div>
+            </div>
+            <div class="window-content" style="background: var(--text-color); color: var(--bg-color); font-family: var(--font-mono); font-size: 0.85rem;">
+                <div id="term-out" style="flex: 1; overflow-y: auto; margin-bottom: 10px;">
+                    <div style="color: var(--accent-color);">[terminal initialized]</div>
+                    <div>type 'help' to see commands.</div>
+                </div>
+                <div style="display: flex; gap: 10px; border-top: 1px dashed var(--bg-color); padding-top: 10px;">
+                    <span style="color: var(--accent-color);">user@studying:~#</span>
+                    <input type="text" id="term-input" style="background: transparent; border: none; color: inherit; width: 100%; outline: none;" autocomplete="off">
+                </div>
+            </div>
+        </div>
+
+        <div class="os-window" id="app-quests" style="width: 400px; height: 450px;">
+            <div class="window-titlebar window-drag-handle">
+                <span>today's tasks</span>
+                <div class="window-controls">
+                    <button class="window-btn min" data-action="min-window">-</button>
+                    <button class="window-btn close" data-action="close-window" data-target="app-quests">x</button>
+                </div>
+            </div>
+            <div class="window-content">
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="quest-input-field" class="os-input" placeholder="what needs to get done?">
+                    <button class="os-btn" id="btn-add-quest">add</button>
+                </div>
+                <div id="quest-list-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+        </div>
+
+        <div class="os-window" id="app-heist" style="width: 350px;">
+            <div class="window-titlebar window-drag-handle">
+                <span>focus timer</span>
+                <div class="window-controls">
+                    <button class="window-btn min" data-action="min-window">-</button>
+                    <button class="window-btn close" data-action="close-window" data-target="app-heist">x</button>
+                </div>
+            </div>
+            <div class="window-content" style="align-items: center;">
+                <div id="heist-timer-display" style="font-size: 3rem; font-family: var(--font-mono);">00:00</div>
+                <div style="display: flex; gap: 10px; width: 100%;" id="heist-controls">
+                    <input type="number" id="heist-duration" class="os-input" value="25" min="1" max="120" style="width: 80px;">
+                    <button class="os-btn" id="btn-start-heist" style="flex: 1;">start focus</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="os-window" id="app-prana" style="width: 400px; height: 450px;">
+            <div class="window-titlebar window-drag-handle">
+                <span>breathing guide</span>
+                <div class="window-controls">
+                    <button class="window-btn min" data-action="min-window">-</button>
+                    <button class="window-btn close" data-action="close-window" data-target="app-prana">x</button>
+                </div>
+            </div>
+            <div class="window-content" style="align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                <div id="prana-orb" style="width: 80px; height: 80px; background: var(--accent-color); border-radius: 50%; transition: all 1s ease;"></div>
+                <div id="prana-text" style="position: absolute; top: 75%; font-family: var(--font-mono);">ready</div>
+                <button class="os-btn" id="btn-prana-start" style="position: absolute; bottom: 20px;">start routine</button>
+            </div>
+        </div>
+
+        <div class="os-window" id="app-market" style="width: 600px;">
+            <div class="window-titlebar window-drag-handle">
+                <span>discover apps</span>
+                <div class="window-controls">
+                    <button class="window-btn min" data-action="min-window">-</button>
+                    <button class="window-btn close" data-action="close-window" data-target="app-market">x</button>
+                </div>
+            </div>
+            <div class="window-content">
+                <div id="market-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"></div>
+            </div>
+        </div>
+
+        <div class="os-window" id="app-notes" style="width: 380px; height: 400px;">
+            <div class="window-titlebar window-drag-handle">
+                <span>notes</span>
+                <div class="window-controls">
+                    <button class="window-btn min" data-action="min-window">-</button>
+                    <button class="window-btn close" data-action="close-window" data-target="app-notes">x</button>
+                </div>
+            </div>
+            <div class="window-content">
+                <textarea id="notes-textarea" class="os-input" style="height: 100%; resize: none; font-family: var(--font-main);" placeholder="jot it down here..."></textarea>
+            </div>
+        </div>
+
+        <div class="os-window" id="app-calc" style="width: 260px; height: 380px;">
+            <div class="window-titlebar window-drag-handle">
+                <span>calculator</span>
+                <div class="window-controls">
+                    <button class="window-btn min" data-action="min-window">-</button>
+                    <button class="window-btn close" data-action="close-window" data-target="app-calc">x</button>
+                </div>
+            </div>
+            <div class="window-content" style="gap: 10px;">
+                <div id="calc-display" class="status-box" style="font-family: var(--font-mono); text-align: right; font-size: 1.5rem; padding: 10px; overflow: hidden;">0</div>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; flex: 1;" id="calc-keys"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="taskbar">
+        <div style="display: flex; gap: 15px;">
+            <button class="os-btn" id="btn-theme-toggle" style="padding: 6px 12px; font-size: 0.75rem;"><i data-lucide="moon" style="width: 14px; height: 14px;"></i></button>
+        </div>
+        <div style="display: flex; gap: 15px; align-items: center; font-family: var(--font-mono); font-size: 0.85rem;">
+            <div id="hud-xp" style="background: var(--text-color); color: var(--bg-color); padding: 4px 10px; border-radius: 6px;">energy: 0000</div>
+            <div id="hud-clock">00:00</div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const $ = id => document.getElementById(id);
+        const phi = 1.618;
+
+        class CoreHUD {
+            constructor() {
+                this.xp = parseInt(localStorage.getItem('studying_xp')) || 0;
+                this.updateXP();
+                
+                setInterval(() => {
+                    const d = new Date();
+                    $('hud-clock').innerText = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    $('widget-clock').innerText = d.toLocaleTimeString();
+                }, 1000);
+            }
+            
+            addXP(amt) {
+                this.xp = Math.max(0, this.xp + amt);
+                localStorage.setItem('studying_xp', this.xp);
+                this.updateXP();
+                if(amt !== 0) this.toast(amt > 0 ? `+${amt} energy` : `spent ${Math.abs(amt)} energy`);
+            }
+            
+            updateXP() {
+                $('hud-xp').innerText = `energy: ${this.xp.toString().padStart(4, '0')}`;
+            }
+            
+            toast(msg) {
+                const t = document.createElement('div');
+                t.className = 'os-toast';
+                t.innerHTML = `>_ ${msg}`;
+                $('sys-notifications').appendChild(t);
+                
+                setTimeout(() => t.classList.add('show'), 10);
+                
+                setTimeout(() => { 
+                    t.classList.remove('show'); 
+                    setTimeout(() => t.remove(), 400); 
+                }, 3000);
+            }
+        }
+
+        class WinManager {
+            constructor() {
+                this.topZ = 100;
+                this.windows = {};
+                this.setupBinds();
+            }
+
+            openApp(id) {
+                const win = $(id);
+                if (!win) return;
+                
+                if (!this.windows[id]) {
+                    const rect = win.getBoundingClientRect();
+                    this.windows[id] = { 
+                        x: (window.innerWidth - (rect.width || 400)) / 2 + (Math.random() * 40 - 20), 
+                        y: (window.innerHeight - (rect.height || 300)) / 2 + (Math.random() * 40 - 20) 
+                    };
+                }
+                
+                win.style.left = `${this.windows[id].x}px`;
+                win.style.top = `${this.windows[id].y}px`;
+                win.classList.add('open');
+                this.focus(win);
+            }
+
+            closeApp(id) {
+                const win = $(id);
+                if (win) win.classList.remove('open');
+            }
+
+            focus(win) {
+                this.topZ++;
+                win.style.zIndex = this.topZ;
+            }
+
+            setupBinds() {
+                document.querySelectorAll('[data-launch]').forEach(icon => {
+                    icon.addEventListener('click', () => {
+                        if(!icon.classList.contains('locked')) this.openApp(icon.dataset.launch);
+                    });
+                });
+
+                document.querySelectorAll('.os-window').forEach(win => {
+                    win.addEventListener('mousedown', () => this.focus(win));
+                });
+                
+                document.querySelectorAll('[data-action="close-window"]').forEach(btn => {
+                    btn.addEventListener('click', (e) => { 
+                        e.stopPropagation(); 
+                        this.closeApp(btn.dataset.target); 
+                    });
+                });
+
+                document.querySelectorAll('.window-drag-handle').forEach(handle => {
+                    handle.addEventListener('mousedown', (e) => {
+                        if(e.target.closest('.window-controls')) return;
+                        
+                        const win = handle.closest('.os-window');
+                        this.focus(win);
+                        
+                        let state = this.windows[win.id];
+                        let startMouseX = e.clientX;
+                        let startMouseY = e.clientY;
+                        let startWinX = state.x;
+                        let startWinY = state.y;
+
+                        const moveIt = (ev) => {
+                            state.x = startWinX + (ev.clientX - startMouseX);
+                            state.y = startWinY + (ev.clientY - startMouseY);
+                            win.style.left = `${state.x}px`;
+                            win.style.top = `${state.y}px`;
+                        };
+
+                        const dropIt = () => {
+                            document.removeEventListener('mousemove', moveIt);
+                            document.removeEventListener('mouseup', dropIt);
+                        };
+
+                        document.addEventListener('mousemove', moveIt);
+                        document.addEventListener('mouseup', dropIt);
+                    });
+                });
+            }
+        }
+
+        class AppLogic {
+            constructor(hud) {
+                this.hud = hud;
+                this.initTerminal();
+                this.initQuests();
+                this.initHeist();
+                this.initPrana();
+                this.initNotes();
+                this.initCalc();
+                this.initMarket();
+            }
+
+            initTerminal() {
+                $('term-input').addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && e.target.value.trim() !== '') {
+                        const val = e.target.value;
+                        const out = $('term-out');
+                        out.innerHTML += `<div><span style="color:var(--accent-color)">></span> ${val}</div>`;
+                        
+                        if (val === 'clear') {
+                            out.innerHTML = '';
+                        } else {
+                            out.innerHTML += `<div style="opacity:0.7">command not found.</div>`;
+                        }
+                        
+                        out.scrollTop = out.scrollHeight;
+                        e.target.value = '';
+                    }
+                });
+            }
+
+            initQuests() {
+                const addQuest = () => {
+                    const val = $('quest-input-field').value.trim();
+                    if(val) {
+                        const div = document.createElement('div');
+                        div.className = 'status-box';
+                        div.style.display = 'flex'; 
+                        div.style.justifyContent = 'space-between';
+                        
+                        div.innerHTML = `<span>${val}</span> <button class="os-btn" style="padding: 2px 8px;">done</button>`;
+                        
+                        div.querySelector('button').onclick = () => { 
+                            div.remove(); 
+                            this.hud.addXP(20); 
+                        };
+                        
+                        $('quest-list-container').appendChild(div);
+                        $('quest-input-field').value = '';
+                    }
+                };
+                
+                $('btn-add-quest').onclick = addQuest;
+                $('quest-input-field').addEventListener('keydown', e => {
+                    if(e.key === 'Enter') addQuest();
+                });
+            }
+
+            initHeist() {
+                let intervalId;
+                let timeRemaining;
+                
+                $('btn-start-heist').onclick = () => {
+                    if(intervalId) clearInterval(intervalId);
+                    timeRemaining = parseInt($('heist-duration').value) * 60;
+                    $('heist-controls').style.display = 'none';
+                    
+                    intervalId = setInterval(() => {
+                        timeRemaining--;
+                        
+                        const mins = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
+                        const secs = (timeRemaining % 60).toString().padStart(2, '0');
+                        $('heist-timer-display').innerText = `${mins}:${secs}`;
+                        
+                        if(timeRemaining <= 0) {
+                            clearInterval(intervalId);
+                            this.hud.addXP(parseInt($('heist-duration').value) * 15);
+                            $('heist-controls').style.display = 'flex';
+                            $('heist-timer-display').innerText = "00:00";
+                            this.hud.toast("focus session complete.");
+                        }
+                    }, 1000);
+                };
+            }
+
+            initPrana() {
+                let isBreathing = false;
+                
+                $('btn-prana-start').onclick = () => {
+                    isBreathing = !isBreathing;
+                    $('btn-prana-start').innerText = isBreathing ? "stop routine" : "start routine";
+                    
+                    const orb = $('prana-orb');
+                    const txt = $('prana-text');
+                    
+                    if(!isBreathing) {
+                        orb.style.transform = "scale(1)";
+                        txt.innerText = "ready";
+                        return;
+                    }
+                    
+                    const breathCycle = () => {
+                        if(!isBreathing) return;
+                        
+                        txt.innerText = "inhale";
+                        orb.style.transform = `scale(${phi * 1.5})`; 
+                        
+                        setTimeout(() => {
+                            if(!isBreathing) return;
+                            txt.innerText = "exhale";
+                            orb.style.transform = "scale(1)";
+                            
+                            setTimeout(breathCycle, 4000);
+                        }, 4000);
+                    };
+                    
+                    breathCycle();
+                };
+            }
+
+            initNotes() {
+                const ta = $('notes-textarea');
+                ta.value = localStorage.getItem('studying_notes') || '';
+                ta.addEventListener('input', () => {
+                    localStorage.setItem('studying_notes', ta.value);
+                });
+            }
+
+            initCalc() {
+                const keys = ['7','8','9','/','4','5','6','*','1','2','3','-','C','0','=','+'];
+                const grid = $('calc-keys');
+                const display = $('calc-display');
+                let current = '';
+                
+                keys.forEach(k => {
+                    const btn = document.createElement('button');
+                    btn.className = 'os-btn';
+                    btn.innerText = k;
+                    btn.style.padding = '10px 5px';
+                    btn.onclick = () => {
+                        if (k === 'C') { current = ''; display.innerText = '0'; }
+                        else if (k === '=') {
+                            try { 
+                                current = eval(current).toString(); 
+                                display.innerText = current; 
+                            }
+                            catch(e) { 
+                                display.innerText = 'err'; 
+                                current = ''; 
+                            }
+                        } else {
+                            current += k;
+                            display.innerText = current;
+                        }
+                    };
+                    grid.appendChild(btn);
+                });
+            }
+
+            initMarket() {
+                const items = [
+                    { launchId: 'app-notes', iconId: 'icon-notes', name: 'notes app', desc: 'write stuff down', cost: 100, icon: 'edit-3' },
+                    { launchId: 'app-calc', iconId: 'icon-calc', name: 'calculator', desc: 'do the math', cost: 200, icon: 'calculator' }
+                ];
+                
+                const unlocked = JSON.parse(localStorage.getItem('studying_unlocked')) || [];
+                
+                unlocked.forEach(id => {
+                    const el = $(id);
+                    if (el) el.classList.remove('locked');
+                });
+
+                const grid = $('market-grid');
+                grid.innerHTML = '';
+                
+                items.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'status-box';
+                    card.style.display = 'flex';
+                    card.style.flexDirection = 'column';
+                    card.style.alignItems = 'center';
+                    card.style.gap = '10px';
+                    
+                    const isOwned = unlocked.includes(item.iconId);
+                    
+                    card.innerHTML = `
+                        <i data-lucide="${item.icon}"></i>
+                        <span>${item.name}</span>
+                        <span style="font-size: 0.75rem; opacity: 0.7;">${item.desc}</span>
+                        <button class="os-btn" id="buy-${item.launchId}" style="width: 100%; margin-top: auto; ${isOwned ? 'opacity:0.5' : ''}" ${isOwned ? 'disabled' : ''}>
+                            ${isOwned ? 'owned' : `buy (${item.cost} xp)`}
+                        </button>
+                    `;
+                    grid.appendChild(card);
+                    
+                    if (!isOwned) {
+                        $(`buy-${item.launchId}`).onclick = () => {
+                            if (this.hud.xp >= item.cost) {
+                                this.hud.addXP(-item.cost);
+                                unlocked.push(item.iconId);
+                                localStorage.setItem('studying_unlocked', JSON.stringify(unlocked));
+                                $(item.iconId).classList.remove('locked');
+                                $(`buy-${item.launchId}`).innerText = 'owned';
+                                $(`buy-${item.launchId}`).disabled = true;
+                                $(`buy-${item.launchId}`).style.opacity = '0.5';
+                                this.hud.toast(`${item.name} unlocked`);
+                            } else {
+                                this.hud.toast(`need more energy. do some tasks.`);
+                            }
+                        };
+                    }
+                });
+                
+                lucide.createIcons();
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const HUD = new CoreHUD();
+            const WM = new WinManager();
+            const Apps = new AppLogic(HUD);
+
+            $('btn-theme-toggle').onclick = () => document.body.classList.toggle('dark-mode');
+
+            $('btn-init-kernel').addEventListener('click', () => {
+                $('btn-init-kernel').style.display = 'none';
+                $('boot-screen').style.opacity = '0';
+                
+                setTimeout(() => {
+                    $('boot-screen').style.display = 'none';
+                    HUD.toast("workspace initialized.");
+                }, 800);
+            });
+            
+        });
+    </script>
+</body>
+</html>
